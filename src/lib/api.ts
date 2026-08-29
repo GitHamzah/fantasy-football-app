@@ -564,3 +564,52 @@ export const getLeagueFormations = (season: number) =>
 
 export const getFormationRoster = (team: string, season: number) =>
   request<FormationRoster>(`/advanced/formations/roster${qs({ team, season })}`);
+
+/* ------------------------------------------------------------------ */
+/* Defensive formations                                                */
+/* ------------------------------------------------------------------ */
+
+export interface DefPersonnelSplit {
+  grouping: string;
+  play_count: number;
+  pct: number;
+  avg_box: number | null;
+  /** The front this package is actually run from (a Nickel can be 4-2-5 or 2-4-5). */
+  avg_dl: number | null;
+  avg_lb: number | null;
+  avg_db: number | null;
+}
+
+export interface CoverageShellSplit {
+  shell: string;
+  play_count: number;
+  pct: number;
+}
+
+export interface TeamDefFormations {
+  team: string;
+  season: number;
+  total_plays: number;
+  personnel: DefPersonnelSplit[];
+  coverage_shells: CoverageShellSplit[];
+}
+
+export interface LeagueDefFormationRow {
+  team: string;
+  total_plays: number;
+  nickel_pct: number;
+  dime_pct: number;
+  base_pct: number;
+  top_package: string | null;
+}
+
+export interface LeagueDefFormations {
+  season: number;
+  teams: LeagueDefFormationRow[];
+}
+
+export const getDefFormations = (season: number, team: string) =>
+  request<TeamDefFormations>(`/advanced/def-formations${qs({ season, team })}`);
+
+export const getLeagueDefFormations = (season: number) =>
+  request<LeagueDefFormations>(`/advanced/def-formations/league${qs({ season })}`);
