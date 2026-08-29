@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/", label: "Rankings" },
   { href: "/matchups", label: "Matchups" },
   { href: "/waiver-wire", label: "Waiver Wire" },
+  { href: "/formations", label: "Formations" },
   { href: "/ai", label: "AI Analyst" },
 ];
 
@@ -104,7 +105,9 @@ export default function NavBar() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-3">
+        {/* min-w-0 + overflow-x-auto: on narrow screens the link strip scrolls
+            inside the bar instead of widening the whole page. */}
+        <div className="flex min-w-0 items-center gap-3 overflow-x-auto">
           <Suspense fallback={null}>
             <NavLinks />
           </Suspense>

@@ -492,3 +492,75 @@ export const askAI = (question: string) =>
     method: "POST",
     body: JSON.stringify({ question }),
   });
+
+/* ------------------------------------------------------------------ */
+/* Formations                                                          */
+/* ------------------------------------------------------------------ */
+
+export interface FormationSplit {
+  formation: string;
+  play_count: number;
+  pct: number;
+  avg_box: number | null;
+}
+
+export interface PersonnelSplit {
+  grouping: string;
+  label: string;
+  play_count: number;
+  pct: number;
+}
+
+export interface FormationBreakdownRow {
+  formation: string;
+  /** null when the personnel string failed offense validation in the warehouse */
+  grouping: string | null;
+  label: string | null;
+  play_count: number;
+  pct: number;
+  avg_box: number | null;
+}
+
+export interface TeamFormations {
+  team: string;
+  season: number;
+  total_plays: number;
+  formations: FormationSplit[];
+  personnel: PersonnelSplit[];
+  breakdown: FormationBreakdownRow[];
+}
+
+export interface LeagueFormationRow {
+  team: string;
+  total_plays: number;
+  shotgun_pct: number;
+  under_center_pct: number;
+  pistol_pct: number;
+  top_personnel: string | null;
+  top_personnel_label: string | null;
+}
+
+export interface LeagueFormations {
+  season: number;
+  teams: LeagueFormationRow[];
+}
+
+export interface RosterPlayer {
+  name: string;
+  player_id: string;
+}
+
+export interface FormationRoster {
+  team: string;
+  season: number;
+  players: Record<string, RosterPlayer[]>;
+}
+
+export const getFormations = (season: number, team: string) =>
+  request<TeamFormations>(`/advanced/formations${qs({ season, team })}`);
+
+export const getLeagueFormations = (season: number) =>
+  request<LeagueFormations>(`/advanced/formations/league${qs({ season })}`);
+
+export const getFormationRoster = (team: string, season: number) =>
+  request<FormationRoster>(`/advanced/formations/roster${qs({ team, season })}`);
