@@ -627,3 +627,120 @@ export const getDefFormationRoster = (team: string, season: number) =>
   request<DefFormationRoster>(
     `/advanced/def-formations/roster${qs({ team, season })}`,
   );
+
+/* ------------------------------------------------------------------ */
+/* Matchup analysis                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One split's stats. The attempt/completion key names vary by the player's
+ * role: targets/receptions (WR/TE), carries (RB), dropbacks/completions (QB).
+ * `plays` always mirrors the attempt count, so generic code can use it.
+ */
+export interface MatchupStatBlock {
+  plays: number;
+  yards: number | null;
+  tds: number;
+  avg_yards: number | null;
+  avg_epa: number | null;
+  targets?: number;
+  receptions?: number;
+  carries?: number;
+  dropbacks?: number;
+  completions?: number;
+}
+
+export type PackageSplit = MatchupStatBlock & { def_package: string };
+export type ShellSplit = MatchupStatBlock & { coverage_shell: string };
+export type DetailSplit = MatchupStatBlock & {
+  def_package: string;
+  coverage_shell: string;
+};
+
+export interface PlayerMatchups {
+  player_id: string;
+  player_name: string | null;
+  position: string | null;
+  team: string | null;
+  season: number;
+  role: string;
+  by_package: PackageSplit[];
+  by_shell: ShellSplit[];
+  by_package_and_shell: DetailSplit[];
+}
+
+export interface PlayerVsTeam {
+  player_id: string;
+  player_name: string | null;
+  position: string | null;
+  vs_team: string;
+  season: number;
+  role: string;
+  total: MatchupStatBlock;
+  by_package: PackageSplit[];
+  by_shell: ShellSplit[];
+}
+
+export interface TeamMatchupBlock {
+  plays: number;
+  pass_plays: number;
+  run_plays: number;
+  pass_rate: number;
+  success_rate: number;
+  touchdowns: number;
+  avg_yards: number | null;
+  avg_epa: number | null;
+}
+
+export interface TeamMatchup {
+  offense: string;
+  defense: string;
+  season: number;
+  total_plays: number;
+  overall: TeamMatchupBlock;
+  by_package: (TeamMatchupBlock & { def_package: string })[];
+  by_shell: (TeamMatchupBlock & { coverage_shell: string })[];
+}
+
+export interface TopPerformer extends MatchupStatBlock {
+  player_id: string;
+  player_name: string;
+  team: string | null;
+  role: string;
+}
+
+export interface TopPerformers {
+  def_package: string | null;
+  coverage_shell: string | null;
+  season: number;
+  position: string | null;
+  players: TopPerformer[];
+}
+
+export const getPlayerMatchups = (playerId: string, season: number) =>
+  request<PlayerMatchups>(
+    `/matchups/player/${encodeURIComponent(playerId)}${qs({ season })}`,
+  );
+
+export const getPlayerVsTeam = (
+  playerId: string,
+  defteam: string,
+  season: number,
+) =>
+  request<PlayerVsTeam>(
+    `/matchups/player/${encodeURIComponent(playerId)}/vs-team${qs({ defteam, season })}`,
+  );
+
+export const getTeamMatchup = (
+  offense: string,
+  defense: string,
+  season: number,
+) => request<TeamMatchup>(`/matchups/team${qs({ offense, defense, season })}`);
+
+export const getTopPerformers = (params: {
+  def_package?: string;
+  coverage_shell?: string;
+  season: number;
+  position?: string;
+  limit?: number;
+}) => request<TopPerformers>(`/matchups/top-performers${qs(params)}`);

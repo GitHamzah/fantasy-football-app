@@ -1,18 +1,26 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   DefenseRow,
   Scoring,
   TeamDefenseRow,
+  TeamMatchup,
+  TopPerformer,
+  TopPerformers,
   getDefensiveRankings,
   getTeamDefense,
+  getTeamMatchup,
+  getTopPerformers,
   tryGet,
 } from "@/lib/api";
+import PlayerCard from "@/components/PlayerCard";
+import TeamSelect, { InsightCard, epaBg, epaColor } from "@/components/TeamSelect";
 import PositionTabs from "@/components/PositionTabs";
 import SeasonSelect from "@/components/SeasonSelect";
 import TeamLogo from "@/components/TeamLogo";
-import { TableSkeleton } from "@/components/SortableTable";
+import SortableTable, { TableSkeleton } from "@/components/SortableTable";
 import { useQueryState } from "@/components/useQueryState";
 import { positionColor } from "@/components/PositionBadge";
 
@@ -32,6 +40,386 @@ function heatColor(value: number, mean: number, spread: number): string {
   return t >= 0.5
     ? `rgba(46, 204, 113, ${alpha.toFixed(3)})`
     : `rgba(231, 76, 60, ${alpha.toFixed(3)})`;
+}
+
+function MCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-surface px-4 py-3">
+      <div className="text-xl font-bold tabular-nums" style={color ? { color } : undefined}>
+        {value}
+      </div>
+      <div className="mt-0.5 text-[10px] uppercase tracking-wider text-faint">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function EpaCell({ value }: { value: number | null | undefined }) {
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 tabular-nums"
+      style={{ background: epaBg(value), color: epaColor(value) }}
+    >
+      {value !== null && value !== undefined ? value.toFixed(3) : "--"}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Team vs team, by defensive scheme                                   */
+/* ------------------------------------------------------------------ */
+
+function TeamVsTeamSection({ season }: { season: number }) {
+  const [offense, setOffense] = useQueryState("off", "DAL");
+  const [defense, setDefense] = useQueryState("def", "PHI");
+  const [data, setData] = useState<TeamMatchup | null>(null);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setData(null);
+    setMissing(false);
+    (async () => {
+      const d = await tryGet(getTeamMatchup(offense, defense, season));
+      if (cancelled) return;
+      if (!d) setMissing(true);
+      setData(d);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [offense, defense, season]);
+
+  type PkgRow = TeamMatchup["by_package"][number];
+  type ShellRow = TeamMatchup["by_shell"][number];
+
+  const pkgCols = useMemo<ColumnDef<PkgRow, unknown>[]>(
+    () => [
+      { accessorKey: "def_package", header: "Package", meta: { align: "left" } },
+      { accessorKey: "plays", header: "Plays" },
+      {
+        accessorKey: "pass_rate",
+        header: "Pass%",
+        cell: (c) => `${c.getValue<number>().toFixed(0)}%`,
+      },
+      {
+        accessorKey: "avg_yards",
+        header: "Avg Yds",
+        cell: (c) => c.getValue<number | null>()?.toFixed(1) ?? "--",
+      },
+      {
+        accessorKey: "avg_epa",
+        header: "EPA",
+        cell: (c) => <EpaCell value={c.getValue<number | null>()} />,
+      },
+      {
+        accessorKey: "success_rate",
+        header: "Success%",
+        cell: (c) => `${c.getValue<number>().toFixed(0)}%`,
+      },
+      { accessorKey: "touchdowns", header: "TDs" },
+    ],
+    [],
+  );
+
+  const shellCols = useMemo<ColumnDef<ShellRow, unknown>[]>(
+    () => [
+      { accessorKey: "coverage_shell", header: "Shell", meta: { align: "left" } },
+      { accessorKey: "plays", header: "Plays" },
+      {
+        accessorKey: "avg_yards",
+        header: "Avg Yds",
+        cell: (c) => c.getValue<number | null>()?.toFixed(1) ?? "--",
+      },
+      {
+        accessorKey: "avg_epa",
+        header: "EPA",
+        cell: (c) => <EpaCell value={c.getValue<number | null>()} />,
+      },
+      {
+        accessorKey: "success_rate",
+        header: "Success%",
+        cell: (c) => `${c.getValue<number>().toFixed(0)}%`,
+      },
+    ],
+    [],
+  );
+
+  // Best and worst defensive look for this offense, among meaningful samples.
+  const insight = useMemo(() => {
+    const pkgs = (data?.by_package ?? []).filter(
+      (r) => r.plays >= 10 && r.avg_yards !== null,
+    );
+    if (pkgs.length < 2) return null;
+    const best = pkgs.reduce((x, y) => (y.avg_yards! > x.avg_yards! ? y : x));
+    const worst = pkgs.reduce((x, y) => (y.avg_yards! < x.avg_yards! ? y : x));
+    if (best === worst) return null;
+    return (
+      `${data!.offense} averaged ${best.avg_yards!.toFixed(1)} yds against ` +
+      `${data!.defense}'s ${best.def_package} (${best.plays} plays) but only ` +
+      `${worst.avg_yards!.toFixed(1)} yds against their ${worst.def_package} ` +
+      `(${worst.plays} plays).`
+    );
+  }, [data]);
+
+  return (
+    <section className="mb-10">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+          Team vs Team Matchup
+        </h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <TeamSelect label="Offense" value={offense} onChange={setOffense} />
+          <TeamSelect label="Defense" value={defense} onChange={setDefense} />
+        </div>
+      </div>
+
+      {missing ? (
+        <p className="rounded-lg border border-border bg-surface px-4 py-6 text-center text-sm text-muted">
+          No matchup data for {offense} vs {defense} in {season} — they may not
+          have played.
+        </p>
+      ) : !data ? (
+        <TableSkeleton rows={5} cols={6} />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MCard
+              label="Avg yards / play"
+              value={data.overall.avg_yards?.toFixed(1) ?? "--"}
+            />
+            <MCard
+              label="Success rate"
+              value={`${data.overall.success_rate.toFixed(1)}%`}
+            />
+            <MCard
+              label="Pass rate"
+              value={`${data.overall.pass_rate.toFixed(1)}%`}
+            />
+            <MCard
+              label="EPA / play"
+              value={
+                data.overall.avg_epa !== null
+                  ? data.overall.avg_epa.toFixed(3)
+                  : "--"
+              }
+              color={epaColor(data.overall.avg_epa)}
+            />
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">
+                By defensive package
+              </h3>
+              <SortableTable
+                data={data.by_package}
+                columns={pkgCols}
+                initialSort={[{ id: "plays", desc: true }]}
+                emptyMessage="No package rows."
+              />
+            </div>
+            <div className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">
+                By coverage shell
+              </h3>
+              <SortableTable
+                data={data.by_shell}
+                columns={shellCols}
+                initialSort={[{ id: "plays", desc: true }]}
+                emptyMessage="No shell rows."
+              />
+            </div>
+          </div>
+
+          <InsightCard text={insight} />
+        </>
+      )}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Top performers vs a defensive look                                  */
+/* ------------------------------------------------------------------ */
+
+const PKG_OPTIONS = ["All", "Nickel", "4-3 Base", "3-4 Base", "Dime", "Quarter"];
+const SHELL_OPTIONS = ["All", "2-High", "1-High", "Loaded Box"];
+const POS_OPTIONS = ["All", "QB", "RB", "WR", "TE"];
+
+function FilterPills({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center rounded-md border border-border bg-surface p-0.5">
+      {options.map((o) => {
+        const active = value === o;
+        return (
+          <button
+            key={o}
+            onClick={() => onChange(o)}
+            aria-pressed={active}
+            className={
+              "rounded px-2.5 py-1 text-xs font-medium transition-colors " +
+              (active ? "bg-accent text-white" : "text-muted hover:text-text")
+            }
+          >
+            {o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TopPerformersSection({
+  season,
+  scoring,
+}: {
+  season: number;
+  scoring: string;
+}) {
+  const [pkg, setPkg] = useState("Nickel");
+  const [shell, setShell] = useState("All");
+  const [pos, setPos] = useState("WR");
+  const [data, setData] = useState<TopPerformers | null>(null);
+
+  const noLook = pkg === "All" && shell === "All";
+
+  useEffect(() => {
+    if (noLook) return;
+    let cancelled = false;
+    setData(null);
+    (async () => {
+      const d = await tryGet(
+        getTopPerformers({
+          season,
+          def_package: pkg === "All" ? undefined : pkg,
+          coverage_shell: shell === "All" ? undefined : shell,
+          position: pos === "All" ? undefined : pos,
+          limit: 20,
+        }),
+      );
+      if (!cancelled)
+        setData(
+          d ?? {
+            def_package: null,
+            coverage_shell: null,
+            season,
+            position: null,
+            players: [],
+          },
+        );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [season, pkg, shell, pos, noLook]);
+
+  const cols = useMemo<ColumnDef<TopPerformer, unknown>[]>(
+    () => [
+      {
+        id: "rank",
+        header: "#",
+        cell: (c) => (
+          <span className="text-faint tabular-nums">{c.row.index + 1}</span>
+        ),
+        meta: { align: "left" },
+        enableSorting: false,
+      },
+      {
+        id: "player",
+        header: "Player",
+        accessorFn: (r) => r.player_name,
+        meta: { align: "left" },
+        cell: (c) => {
+          const r = c.row.original;
+          return (
+            <PlayerCard
+              playerId={r.player_id}
+              name={r.player_name}
+              position={pos !== "All" ? pos : r.role === "WR/TE" ? "WR" : r.role}
+              team={r.team}
+              scoring={scoring}
+            />
+          );
+        },
+      },
+      {
+        id: "att",
+        header: "Att",
+        accessorFn: (r) => r.plays,
+        cell: (c) => c.getValue<number>(),
+      },
+      {
+        accessorKey: "yards",
+        header: "Yards",
+        cell: (c) => c.getValue<number | null>()?.toFixed(0) ?? "--",
+      },
+      { accessorKey: "tds", header: "TDs" },
+      {
+        accessorKey: "avg_yards",
+        header: "Avg Yds",
+        cell: (c) => c.getValue<number | null>()?.toFixed(1) ?? "--",
+      },
+      {
+        accessorKey: "avg_epa",
+        header: "EPA",
+        cell: (c) => <EpaCell value={c.getValue<number | null>()} />,
+      },
+    ],
+    [scoring, pos],
+  );
+
+  return (
+    <section className="mb-10">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+          Who thrives against this look?
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterPills options={PKG_OPTIONS} value={pkg} onChange={setPkg} />
+          <FilterPills options={SHELL_OPTIONS} value={shell} onChange={setShell} />
+          <FilterPills options={POS_OPTIONS} value={pos} onChange={setPos} />
+        </div>
+      </div>
+
+      {noLook ? (
+        <p className="rounded-lg border border-border bg-surface px-4 py-6 text-center text-sm text-muted">
+          Pick a defensive package or coverage shell to rank against.
+        </p>
+      ) : data === null ? (
+        <TableSkeleton rows={10} cols={7} />
+      ) : (
+        <>
+          <SortableTable
+            data={data.players}
+            columns={cols}
+            emptyMessage={`No qualifying players for this look in ${season}.`}
+          />
+          <p className="mt-2 text-xs text-faint">
+            Minimum 20 opportunities against the selected look. Sorted by total
+            yards; click headers to re-sort.
+          </p>
+        </>
+      )}
+    </section>
+  );
 }
 
 function MatchupsInner() {
@@ -120,6 +508,13 @@ function MatchupsInner() {
         />
       </div>
 
+      <TeamVsTeamSection season={season} />
+
+      <TopPerformersSection season={season} scoring={scoringStr} />
+
+      <h2 className="mb-3 border-b border-border pb-2 text-sm font-semibold uppercase tracking-wider text-muted">
+        Defense heat map
+      </h2>
       <div className="mb-4">
         <PositionTabs value={position} onChange={setPosition} />
       </div>

@@ -24,6 +24,7 @@ import {
 } from "@/lib/api";
 import { BarChart, LineChart } from "@/components/Charts";
 import MatchupRating from "@/components/MatchupRating";
+import PlayerVsDefense from "@/components/PlayerVsDefense";
 import PositionBadge from "@/components/PositionBadge";
 import SeasonSelect from "@/components/SeasonSelect";
 import SortableTable, { TableSkeleton } from "@/components/SortableTable";
@@ -565,6 +566,12 @@ function PlayerInner() {
           </div>
         )}
       </Section>
+
+      <PlayerVsDefense
+        playerId={playerId}
+        playerName={name}
+        season={weekSeason}
+      />
     </>
   );
 }
