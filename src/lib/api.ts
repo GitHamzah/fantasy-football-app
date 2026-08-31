@@ -548,6 +548,8 @@ export interface LeagueFormations {
 export interface RosterPlayer {
   name: string;
   player_id: string;
+  /** Present for OL (C/G/T) and defensive players; skill positions omit it. */
+  position?: string;
 }
 
 export interface FormationRoster {
@@ -613,3 +615,15 @@ export const getDefFormations = (season: number, team: string) =>
 
 export const getLeagueDefFormations = (season: number) =>
   request<LeagueDefFormations>(`/advanced/def-formations/league${qs({ season })}`);
+
+export interface DefFormationRoster {
+  team: string;
+  season: number;
+  /** Groups: DL, LB, CB, S — each ranked by games played. */
+  players: Record<string, RosterPlayer[]>;
+}
+
+export const getDefFormationRoster = (team: string, season: number) =>
+  request<DefFormationRoster>(
+    `/advanced/def-formations/roster${qs({ team, season })}`,
+  );

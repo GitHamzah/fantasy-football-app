@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import {
+  DefFormationRoster,
   DefPersonnelSplit,
   FormationBreakdownRow,
   FormationRoster,
@@ -12,6 +13,7 @@ import {
   LeagueFormations,
   TeamDefFormations,
   TeamFormations,
+  getDefFormationRoster,
   getDefFormations,
   getFormationRoster,
   getFormations,
@@ -436,6 +438,7 @@ function DefenseView({
   setTeam: (t: string) => void;
 }) {
   const [data, setData] = useState<TeamDefFormations | null>(null);
+  const [roster, setRoster] = useState<DefFormationRoster | null>(null);
   const [league, setLeague] = useState<LeagueDefFormations | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [packageSel, setPackageSel] = useState<string | null>(null);
@@ -444,14 +447,19 @@ function DefenseView({
   useEffect(() => {
     let cancelled = false;
     setData(null);
+    setRoster(null);
     setError(null);
     setPackageSel(null);
     setShellSel(null);
     (async () => {
-      const d = await tryGet(getDefFormations(season, team));
+      const [d, r] = await Promise.all([
+        tryGet(getDefFormations(season, team)),
+        tryGet(getDefFormationRoster(team, season)),
+      ]);
       if (cancelled) return;
       if (!d) setError(`No defensive formation data for ${team} in ${season}.`);
       setData(d);
+      setRoster(r);
     })();
     return () => {
       cancelled = true;
@@ -597,7 +605,7 @@ function DefenseView({
               </span>
             </h2>
             <span className="text-xs text-faint">
-              package alignment — individual defenders not tracked
+              season starters shown — per-package defenders not tracked
             </span>
           </div>
 
@@ -606,6 +614,7 @@ function DefenseView({
               front={roundFront(activePackage)}
               shell={activeShell}
               packageLabel={activePackage.grouping}
+              players={roster?.players}
             />
           </div>
 

@@ -82,6 +82,27 @@ const OL: { label: string; x: number }[] = [
   { label: "RT", x: 330 },
 ];
 
+// Seat the returned linemen: the C to the middle, G's to the guard spots,
+// T's to the tackle spots, anything left (bare "OL") to whatever is open.
+// L/R within a pair is not knowable from position codes, so first-come.
+function assignLine(ol: RosterPlayer[]): (RosterPlayer | undefined)[] {
+  const seats: (RosterPlayer | undefined)[] = Array(5).fill(undefined);
+  const openings: Record<string, number[]> = { C: [2], G: [1, 3], T: [0, 4] };
+  const leftovers: RosterPlayer[] = [];
+  for (const p of ol) {
+    const spots = openings[p.position ?? ""] ?? [];
+    const free = spots.find((i) => seats[i] === undefined);
+    if (free !== undefined) seats[free] = p;
+    else leftovers.push(p);
+  }
+  for (const p of leftovers) {
+    const free = seats.findIndex((x) => x === undefined);
+    if (free === -1) break;
+    seats[free] = p;
+  }
+  return seats;
+}
+
 const POS_STYLE: Record<string, { r: number; fill: string }> = {
   QB: { r: 22, fill: "var(--color-qb)" },
   RB: { r: 18, fill: "var(--color-rb)" },
@@ -102,12 +123,15 @@ function PlayerDot({
   y,
   name,
   badge,
+  nameDy = 0,
 }: {
   pos: keyof typeof POS_STYLE;
   x: number;
   y: number;
   name?: string;
   badge?: string;
+  /** Extra name-label drop; OL names sit 40px apart and need two rows. */
+  nameDy?: number;
 }) {
   const { r, fill } = POS_STYLE[pos];
   return (
@@ -135,7 +159,7 @@ function PlayerDot({
       {name && (
         <text
           x={x}
-          y={y + r + 13}
+          y={y + r + 13 + nameDy}
           textAnchor="middle"
           fontSize={10.5}
           fontWeight={500}
@@ -253,9 +277,20 @@ export default function FormationField({
       </g>
 
       {/* Offensive line */}
-      {OL.map((o) => (
-        <PlayerDot key={o.label} pos="OL" x={o.x} y={LOS} badge={o.label} />
-      ))}
+      {(() => {
+        const seats = assignLine(personnel.OL ?? []);
+        return OL.map((o, i) => (
+          <PlayerDot
+            key={o.label}
+            pos="OL"
+            x={o.x}
+            y={LOS}
+            badge={o.label}
+            name={seats[i]?.name}
+            nameDy={i % 2 === 1 ? 13 : 0}
+          />
+        ));
+      })()}
 
       {/* Tight ends */}
       {Array.from({ length: teCount }).map((_, i) => (

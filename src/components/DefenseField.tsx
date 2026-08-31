@@ -1,14 +1,17 @@
 "use client";
 
+import { RosterPlayer } from "@/lib/api";
+
 /**
  * SVG football field showing a defensive alignment: the mirror of
  * FormationField. The line of scrimmage sits at the same height and the
  * defense deploys ABOVE it, so depth reads upward — DL on the ball, LBs at
  * the second level, corners out wide, safeties deep near the top.
  *
- * There are no player names by design: participation data says which package
- * a defense ran, not which defenders were in it. Dots carry position labels
- * derived from the front (DE/DT/NT, MLB/OLB/ILB, CB/FS/SS).
+ * Dots carry position labels derived from the front (DE/DT/NT, MLB/OLB/ILB,
+ * CB/FS/SS). When a roster is provided, names fill in ranked by games played
+ * per group — the season's starters, not the defenders on any specific
+ * package (participation data does not track that).
  *
  * `front` is the package's actual average front rounded to integers by the
  * caller — a Nickel renders as 4-2-5 for one team and 2-4-5 for another.
@@ -26,7 +29,19 @@ const STYLE: Record<string, { r: number; fill: string }> = {
   S: { r: 17, fill: "#2ecc71" },
 };
 
-type Dot = { x: number; y: number; label: string; kind: keyof typeof STYLE };
+type Dot = {
+  x: number;
+  y: number;
+  label: string;
+  kind: keyof typeof STYLE;
+  name?: string;
+};
+
+function lastName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const last = parts[parts.length - 1] ?? name;
+  return last.length > 11 ? `${last.slice(0, 10)}…` : last;
+}
 
 /** Spread n points symmetrically around cx with the given gap. */
 function spread(n: number, cx: number, gap: number): number[] {
@@ -54,11 +69,21 @@ export default function DefenseField({
   front,
   shell,
   packageLabel,
+  players,
 }: {
   front: { dl: number; lb: number; db: number };
   shell: string | null;
   packageLabel: string;
+  /** Optional roster groups (DL/LB/CB/S) ranked by games; names the dots in order. */
+  players?: Record<string, RosterPlayer[]>;
 }) {
+  const queue = {
+    DL: [...(players?.DL ?? [])],
+    LB: [...(players?.LB ?? [])],
+    CB: [...(players?.CB ?? [])],
+    S: [...(players?.S ?? [])],
+  };
+  const nextName = (kind: keyof typeof queue) => queue[kind].shift()?.name;
   const dl = Math.max(0, Math.min(front.dl, 7));
   const lb = Math.max(0, Math.min(front.lb, 5));
   const db = Math.max(0, Math.min(front.db, 8));
@@ -67,12 +92,12 @@ export default function DefenseField({
 
   // Defensive line: on the ball, mirroring the OL spacing.
   dlLabels(dl).forEach((label, i) => {
-    dots.push({ x: spread(dl, CX, 46)[i], y: LOS - 26, label, kind: "DL" });
+    dots.push({ x: spread(dl, CX, 46)[i], y: LOS - 26, label, kind: "DL", name: nextName("DL") });
   });
 
   // Linebackers: second level.
   lbLabels(lb).forEach((label, i) => {
-    dots.push({ x: spread(lb, CX, 78)[i], y: LOS - 92, label, kind: "LB" });
+    dots.push({ x: spread(lb, CX, 78)[i], y: LOS - 92, label, kind: "LB", name: nextName("LB") });
   });
 
   // Secondary. Safeties come off the top of the DB count by shell, corners
@@ -82,8 +107,8 @@ export default function DefenseField({
   const corners = Math.min(2, remaining);
   remaining -= corners;
 
-  if (corners >= 1) dots.push({ x: 52, y: LOS - 30, label: "CB", kind: "CB" });
-  if (corners >= 2) dots.push({ x: 448, y: LOS - 30, label: "CB", kind: "CB" });
+  if (corners >= 1) dots.push({ x: 52, y: LOS - 30, label: "CB", kind: "CB", name: nextName("CB") });
+  if (corners >= 2) dots.push({ x: 448, y: LOS - 30, label: "CB", kind: "CB", name: nextName("CB") });
 
   // Slot DBs: nickel right, then left, then shallow middle.
   const slotSpots = [
@@ -95,16 +120,16 @@ export default function DefenseField({
     { x: CX - 60, y: LOS - 52 },
   ];
   for (let i = 0; i < remaining && i < slotSpots.length; i++) {
-    dots.push({ ...slotSpots[i], label: "CB", kind: "CB" });
+    dots.push({ ...slotSpots[i], label: "CB", kind: "CB", name: nextName("CB") });
   }
 
   // Safeties: two high splits the deep halves; one high centers, and against
   // a loaded box the strong safety is already counted down in the slots.
   if (safeties === 2) {
-    dots.push({ x: 165, y: 96, label: "FS", kind: "S" });
-    dots.push({ x: 335, y: 96, label: "SS", kind: "S" });
+    dots.push({ x: 165, y: 96, label: "FS", kind: "S", name: nextName("S") });
+    dots.push({ x: 335, y: 96, label: "SS", kind: "S", name: nextName("S") });
   } else if (safeties === 1) {
-    dots.push({ x: CX, y: 84, label: "FS", kind: "S" });
+    dots.push({ x: CX, y: 84, label: "FS", kind: "S", name: nextName("S") });
   }
 
   return (
@@ -179,9 +204,11 @@ export default function DefenseField({
 
       {dots.map((d, i) => {
         const { r, fill } = STYLE[d.kind];
+        const dlIndex = d.kind === "DL" ? dots.filter((o) => o.kind === "DL").indexOf(d) : -1;
+        const nameDy = dlIndex >= 0 && dlIndex % 2 === 1 ? 13 : 0;
         return (
           <g key={i} className="ff-player" style={{ transformOrigin: `${d.x}px ${d.y}px` }}>
-            <title>{d.label}</title>
+            <title>{d.name ? `${d.name} (${d.label})` : d.label}</title>
             <circle cx={d.x} cy={d.y} r={r} fill={fill} stroke="rgba(0,0,0,0.35)" strokeWidth={1.5} />
             <text
               x={d.x}
@@ -194,6 +221,21 @@ export default function DefenseField({
             >
               {d.label}
             </text>
+            {d.name && (
+              <text
+                x={d.x}
+                y={d.y + r + 13 + nameDy}
+                textAnchor="middle"
+                fontSize={10.5}
+                fontWeight={500}
+                fill="rgba(255,255,255,0.88)"
+                stroke="rgba(0,0,0,0.55)"
+                strokeWidth={2.5}
+                paintOrder="stroke"
+              >
+                {lastName(d.name)}
+              </text>
+            )}
           </g>
         );
       })}
