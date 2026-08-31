@@ -9,7 +9,8 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Tooltip, { metricTip } from "./Tooltip";
 
 /**
  * The core data table. Sorting cycles asc -> desc -> none on header click.
@@ -25,30 +26,58 @@ export type ColumnMeta = {
   width?: number;
 };
 
+// Numeric compare that coerces values (so "10.4" sorts as a number, never
+// alphabetically) and treats null/undefined/NaN as -Infinity, which lands
+// them last under the descending sort every stat column starts with.
+function numericSort<T>(
+  rowA: { getValue: (id: string) => unknown },
+  rowB: { getValue: (id: string) => unknown },
+  columnId: string,
+): number {
+  const coerce = (v: unknown) => {
+    const n = typeof v === "string" ? Number(v) : (v as number);
+    return v === null || v === undefined || Number.isNaN(n) ? -Infinity : n;
+  };
+  const a = coerce(rowA.getValue(columnId));
+  const b = coerce(rowB.getValue(columnId));
+  return a === b ? 0 : a > b ? 1 : -1;
+}
+
 export default function SortableTable<T>({
   data,
   columns,
   initialSort,
   emptyMessage = "No rows.",
-  maxHeight,
+  maxHeight = 600,
 }: {
   data: T[];
   columns: ColumnDef<T, unknown>[];
   initialSort?: SortingState;
   emptyMessage?: string;
+  /** Tables taller than this scroll inside their container. Default 600px. */
   maxHeight?: number;
 }) {
   const [sorting, setSorting] = useState<SortingState>(initialSort ?? []);
 
+  // Right-aligned columns are numeric by this app's convention; force the
+  // coercing numeric sort on any of them that has no explicit sortingFn.
+  const numericColumns = useMemo(
+    () =>
+      columns.map((c) => {
+        const align = (c.meta as ColumnMeta | undefined)?.align;
+        if (align === "left" || c.sortingFn) return c;
+        return { ...c, sortingFn: numericSort<T> };
+      }),
+    [columns],
+  );
+
   const table = useReactTable({
     data,
-    columns,
+    columns: numericColumns,
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    // Nulls should always sort to the bottom, never mix into the middle.
-    sortingFns: {},
   });
 
   const leafColumns = table.getVisibleLeafColumns();
@@ -78,7 +107,7 @@ export default function SortableTable<T>({
   return (
     <div
       className="overflow-auto rounded-lg border border-border"
-      style={maxHeight ? { maxHeight } : undefined}
+      style={{ maxHeight }}
     >
       <table className="tbl">
         <thead>
@@ -140,10 +169,18 @@ export default function SortableTable<T>({
                         (meta?.align === "left" ? "" : "justify-end")
                       }
                     >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
+                      {(() => {
+                        const rendered = flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        );
+                        const tip = metricTip(header.column.columnDef.header);
+                        return tip ? (
+                          <Tooltip text={tip} side="bottom">{rendered}</Tooltip>
+                        ) : (
+                          rendered
+                        );
+                      })()}
                       {sortable && (
                         <span className="text-faint">
                           {dir === "asc" ? (

@@ -25,6 +25,7 @@ import {
 import { BarChart, LineChart } from "@/components/Charts";
 import MatchupRating from "@/components/MatchupRating";
 import PlayerVsDefense from "@/components/PlayerVsDefense";
+import Tooltip, { metricTip } from "@/components/Tooltip";
 import PositionBadge from "@/components/PositionBadge";
 import SeasonSelect from "@/components/SeasonSelect";
 import SortableTable, { TableSkeleton } from "@/components/SortableTable";
@@ -58,7 +59,11 @@ function Metric({
         {value}
       </div>
       <div className="mt-0.5 text-[10px] uppercase tracking-wider text-faint">
-        {label}
+        {metricTip(label) ? (
+          <Tooltip text={metricTip(label)!}>{label}</Tooltip>
+        ) : (
+          label
+        )}
       </div>
     </div>
   );

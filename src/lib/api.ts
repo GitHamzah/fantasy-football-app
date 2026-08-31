@@ -41,6 +41,7 @@ const LIMIT_CAPS = {
   consistency: 100,
   vor: 200,
   opportunity: 200,
+  leaders: 100,
 } as const;
 
 function clamp(value: number, max: number): number {
@@ -350,7 +351,7 @@ export const getSeasonLeaders = (
   limit = 100,
 ) =>
   request<LeaderEntry[]>(
-    `/leaders/season${qs({ season, position, scoring, limit })}`,
+    `/leaders/season${qs({ season, position, scoring, limit: clamp(limit, LIMIT_CAPS.leaders) })}`,
   );
 
 export const getWeeklyLeaders = (

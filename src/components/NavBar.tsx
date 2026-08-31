@@ -7,6 +7,7 @@ import { useQueryState } from "./useQueryState";
 
 const LINKS = [
   { href: "/", label: "Rankings" },
+  { href: "/players", label: "Players" },
   { href: "/matchups", label: "Matchups" },
   { href: "/waiver-wire", label: "Waiver Wire" },
   { href: "/formations", label: "Formations" },

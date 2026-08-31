@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import PlayerCard from "@/components/PlayerCard";
 import TeamSelect, { InsightCard, epaBg, epaColor } from "@/components/TeamSelect";
+import Tooltip, { metricTip } from "@/components/Tooltip";
 import PositionTabs from "@/components/PositionTabs";
 import SeasonSelect from "@/components/SeasonSelect";
 import TeamLogo from "@/components/TeamLogo";
@@ -57,7 +58,11 @@ function MCard({
         {value}
       </div>
       <div className="mt-0.5 text-[10px] uppercase tracking-wider text-faint">
-        {label}
+        {metricTip(label) ? (
+          <Tooltip text={metricTip(label)!}>{label}</Tooltip>
+        ) : (
+          label
+        )}
       </div>
     </div>
   );
@@ -532,7 +537,7 @@ function MatchupsInner() {
           No defensive data for {season}.
         </div>
       ) : (
-        <div className="overflow-auto rounded-lg border border-border">
+        <div className="max-h-[600px] overflow-auto rounded-lg border border-border">
           <table className="tbl">
             <thead>
               <tr className="cols">
