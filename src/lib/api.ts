@@ -745,3 +745,104 @@ export const getTopPerformers = (params: {
   position?: string;
   limit?: number;
 }) => request<TopPerformers>(`/matchups/top-performers${qs(params)}`);
+
+/* ------------------------------------------------------------------ */
+/* My Leagues (Sleeper)                                                */
+/* ------------------------------------------------------------------ */
+
+export interface MyLeague {
+  league_id: string;
+  name: string;
+  status: string; // in_season | pre_draft | complete
+  total_rosters: number;
+  scoring_type: string;
+  my_record: string;
+  my_points: number | null;
+  my_standing: number;
+}
+
+export interface MyLeagues {
+  user_id: string;
+  season: number;
+  leagues: MyLeague[];
+}
+
+export interface RosterMatchupSplit {
+  shell: string;
+  avg_yards: number | null;
+}
+
+export interface LeagueRosterPlayer {
+  player_name: string;
+  position: string | null;
+  team: string | null;
+  is_starter: boolean;
+  gsis_id: string | null;
+  sleeper_id: string;
+  ppg_2025: number | null;
+  games_2025: number | null;
+  yards_2025: number | null;
+  tds_2025: number | null;
+  best_matchup: RosterMatchupSplit | null;
+  worst_matchup: RosterMatchupSplit | null;
+}
+
+export interface LeagueRoster {
+  league_id: string;
+  league_name: string;
+  manager: string;
+  record: string | null;
+  players: LeagueRosterPlayer[];
+}
+
+export interface LeagueStandingRow {
+  rank: number;
+  manager: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  points: number | null;
+  points_against: number | null;
+  is_me: boolean;
+}
+
+export interface LeagueStandings {
+  league_id: string;
+  league_name: string;
+  season: number;
+  standings: LeagueStandingRow[];
+}
+
+export interface LeagueMatchupTeam {
+  roster_id: number;
+  manager: string;
+  points: number | null;
+  is_me: boolean;
+}
+
+export interface LeagueMatchupGame {
+  matchup_id: number | null;
+  teams: LeagueMatchupTeam[];
+}
+
+export interface LeagueMatchups {
+  league_id: string;
+  week: number;
+  matchups: LeagueMatchupGame[];
+}
+
+export const getMyLeagues = (season: number) =>
+  request<MyLeagues>(`/leagues${qs({ season })}`);
+
+export const getLeagueRoster = (leagueId: string) =>
+  request<LeagueRoster>(`/leagues/${encodeURIComponent(leagueId)}/roster`);
+
+export const getLeagueStandings = (leagueId: string) =>
+  request<LeagueStandings>(
+    `/leagues/${encodeURIComponent(leagueId)}/standings`,
+  );
+
+export const getLeagueMatchups = (leagueId: string, week: number) =>
+  request<LeagueMatchups>(
+    `/leagues/${encodeURIComponent(leagueId)}/matchups${qs({ week })}`,
+  );

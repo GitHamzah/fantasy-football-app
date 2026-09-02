@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { CircleUser } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useQueryState } from "./useQueryState";
 
-const LINKS = [
+const LINKS: { href: string; label: string; personal?: boolean }[] = [
   { href: "/", label: "Rankings" },
   { href: "/players", label: "Players" },
   { href: "/matchups", label: "Matchups" },
   { href: "/waiver-wire", label: "Waiver Wire" },
   { href: "/formations", label: "Formations" },
   { href: "/ai", label: "AI Analyst" },
+  // Personal section: reads Hamzah's Sleeper leagues, styled apart from the
+  // public analytics links via the icon.
+  { href: "/my-leagues", label: "My Leagues", personal: true },
 ];
 
 const SCORINGS: { value: string; label: string }[] = [
@@ -63,12 +67,16 @@ function NavLinks() {
             key={l.href}
             href={`${l.href}${suffix}`}
             className={
-              "rounded-md px-3 py-1.5 text-sm transition-colors " +
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors " +
+              (l.personal ? "text-accent " : "") +
               (active
                 ? "bg-surface text-text"
-                : "text-muted hover:bg-surface hover:text-text")
+                : l.personal
+                  ? "hover:bg-surface"
+                  : "text-muted hover:bg-surface hover:text-text")
             }
           >
+            {l.personal && <CircleUser size={14} />}
             {l.label}
           </Link>
         );
