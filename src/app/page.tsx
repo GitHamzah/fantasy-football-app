@@ -5,13 +5,16 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   ConsistencyEntry,
   Projection,
+  ScheduleAdjustedPlayer,
   Scoring,
   VorEntry,
   getConsistency,
   getProjections,
+  getScheduleAdjustedProjections,
   getVOR,
   tryGet,
 } from "@/lib/api";
+import RatingBadge from "@/components/RatingBadge";
 import GradeBar from "@/components/GradeBar";
 import PlayerCard from "@/components/PlayerCard";
 import PositionTabs from "@/components/PositionTabs";
@@ -35,10 +38,135 @@ function num(v: unknown): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+function ScheduleAdjustedTable({
+  position,
+  scoring,
+}: {
+  position: string;
+  scoring: string;
+}) {
+  const [rows, setRows] = useState<ScheduleAdjustedPlayer[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    setError(null);
+    (async () => {
+      const d = await tryGet(
+        getScheduleAdjustedProjections(
+          2026,
+          position === "ALL" ? undefined : position,
+          400,
+        ),
+      );
+      if (cancelled) return;
+      if (!d) setError("Schedule-adjusted projections are unavailable right now.");
+      setRows(d?.players ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [position]);
+
+  const columns = useMemo<ColumnDef<ScheduleAdjustedPlayer, unknown>[]>(
+    () => [
+      {
+        id: "rank",
+        header: "#",
+        cell: (c) => <span className="text-faint">{c.row.index + 1}</span>,
+        meta: { align: "left", width: 44 },
+        enableSorting: false,
+      },
+      {
+        id: "player",
+        header: "Player",
+        accessorFn: (r) => r.player_name,
+        meta: { align: "left", width: 230 },
+        cell: (c) => {
+          const r = c.row.original;
+          return (
+            <PlayerCard
+              playerId={r.player_id}
+              name={r.player_name}
+              position={r.position}
+              team={r.team}
+              scoring={scoring}
+            />
+          );
+        },
+      },
+      {
+        id: "yds_g",
+        header: "Proj Yds/G",
+        accessorFn: (r) => r.avg_projected_yards,
+        cell: (c) => c.getValue<number | null>()?.toFixed(1) ?? "--",
+      },
+      {
+        id: "yds",
+        header: "Proj Yds",
+        accessorFn: (r) => r.total_projected_yards,
+        cell: (c) => c.getValue<number | null>()?.toFixed(0) ?? "--",
+      },
+      {
+        id: "tds",
+        header: "Proj TDs",
+        accessorFn: (r) => r.total_projected_tds,
+        cell: (c) => c.getValue<number | null>()?.toFixed(1) ?? "--",
+      },
+      {
+        id: "rating",
+        header: "Rating",
+        accessorFn: (r) => r.avg_matchup_score,
+        meta: { align: "left" },
+        cell: (c) => <RatingBadge rating={c.row.original.schedule_rating} />,
+      },
+      {
+        id: "score",
+        header: "Matchup Score",
+        accessorFn: (r) => r.avg_matchup_score,
+        cell: (c) => c.getValue<number | null>()?.toFixed(3) ?? "--",
+      },
+      {
+        id: "ppg25",
+        header: "2025 PPG",
+        accessorFn: (r) => r.ppg_2025,
+        cell: (c) => c.getValue<number | null>()?.toFixed(1) ?? "--",
+      },
+    ],
+    [scoring],
+  );
+
+  if (error) {
+    return (
+      <p className="rounded-lg border border-border bg-surface px-4 py-8 text-center text-sm text-muted">
+        {error}
+      </p>
+    );
+  }
+  if (rows === null) return <TableSkeleton rows={14} cols={8} />;
+  return (
+    <>
+      <SortableTable
+        data={rows}
+        columns={columns}
+        initialSort={[{ id: "yds", desc: true }]}
+        emptyMessage={`No schedule-adjusted projections${position !== "ALL" ? ` for ${position}` : ""}.`}
+        maxHeight={760}
+      />
+      <p className="mt-2 text-xs text-faint">
+        {rows.length} players · 2025 per-shell production weighted by each 2026
+        opponent&apos;s coverage-shell tendencies · min 8 games in 2025
+      </p>
+    </>
+  );
+}
+
 function RankingsInner() {
   const [seasonStr, setSeason] = useQueryState("season", "2026");
   const [position, setPosition] = useQueryState("position", "ALL");
   const [scoringStr] = useQueryState("scoring", "ppr");
+  const [mode, setMode] = useQueryState("mode", "standard");
 
   const season = Number(seasonStr) || 2026;
   const scoring = scoringStr as Scoring;
@@ -275,10 +403,35 @@ function RankingsInner() {
         <SeasonSelect value={season} onChange={(s) => setSeason(String(s))} />
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <PositionTabs value={position} onChange={setPosition} />
+        <div className="flex items-center rounded-md border border-border bg-surface p-0.5">
+          {[
+            { v: "standard", label: "Standard Projections" },
+            { v: "schedule", label: "Schedule-Adjusted" },
+          ].map((m) => {
+            const active = mode === m.v;
+            return (
+              <button
+                key={m.v}
+                onClick={() => setMode(m.v)}
+                aria-pressed={active}
+                className={
+                  "rounded px-2.5 py-1 text-xs font-medium transition-colors " +
+                  (active ? "bg-accent text-white" : "text-muted hover:text-text")
+                }
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {mode === "schedule" ? (
+        <ScheduleAdjustedTable position={position} scoring={scoringStr} />
+      ) : (
+        <>
       {degraded.length > 0 && (
         <p className="mb-3 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted">
           {degraded.join(" and ")} unavailable from the API right now — those
@@ -309,6 +462,8 @@ function RankingsInner() {
             {position !== "ALL" ? ` at ${position}` : ""} · VOR and consistency
             from {season - 1}
           </p>
+        </>
+      )}
         </>
       )}
     </>

@@ -25,6 +25,7 @@ import {
 import { BarChart, LineChart } from "@/components/Charts";
 import MatchupRating from "@/components/MatchupRating";
 import PlayerVsDefense from "@/components/PlayerVsDefense";
+import ScheduleOutlook from "@/components/ScheduleOutlook";
 import Tooltip, { metricTip } from "@/components/Tooltip";
 import PositionBadge from "@/components/PositionBadge";
 import SeasonSelect from "@/components/SeasonSelect";
@@ -577,6 +578,8 @@ function PlayerInner() {
         playerName={name}
         season={weekSeason}
       />
+
+      <ScheduleOutlook playerId={playerId} />
     </>
   );
 }

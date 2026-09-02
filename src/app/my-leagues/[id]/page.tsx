@@ -9,6 +9,8 @@ import {
   LeagueMatchups,
   LeagueRoster,
   LeagueRosterPlayer,
+  ScheduleAdjustedPlayer,
+  getScheduleAdjustedProjections,
   LeagueStandingRow,
   LeagueStandings,
   MyLeague,
@@ -19,6 +21,7 @@ import {
   tryGet,
 } from "@/lib/api";
 import { StatusBadge, hasPlayed } from "@/components/LeagueBits";
+import RatingBadge from "@/components/RatingBadge";
 import PositionBadge from "@/components/PositionBadge";
 import SortableTable, { TableSkeleton } from "@/components/SortableTable";
 import TeamLogo from "@/components/TeamLogo";
@@ -114,9 +117,11 @@ function rosterInsights(players: LeagueRosterPlayer[]): string[] {
 function RosterGroup({
   title,
   players,
+  schedByPlayer,
 }: {
   title: string;
   players: LeagueRosterPlayer[];
+  schedByPlayer: Map<string, ScheduleAdjustedPlayer>;
 }) {
   if (!players.length) return null;
   return (
@@ -133,6 +138,7 @@ function RosterGroup({
               <th>G</th>
               <th className="lft">Best look</th>
               <th className="lft">Worst look</th>
+              <th className="lft">2026 sched</th>
               <th className="lft"></th>
             </tr>
           </thead>
@@ -162,6 +168,14 @@ function RosterGroup({
                     />
                   </td>
                   <td className="lft">
+                    <RatingBadge
+                      rating={
+                        (p.gsis_id && schedByPlayer.get(p.gsis_id)?.schedule_rating) ||
+                        null
+                      }
+                    />
+                  </td>
+                  <td className="lft">
                     {p.gsis_id && hasStats && (
                       <Link
                         href={`/players/${encodeURIComponent(p.gsis_id)}`}
@@ -184,16 +198,21 @@ function RosterGroup({
 function RosterTab({ leagueId, status }: { leagueId: string; status: string }) {
   const [data, setData] = useState<LeagueRoster | null>(null);
   const [missing, setMissing] = useState(false);
+  const [sched, setSched] = useState<ScheduleAdjustedPlayer[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     setData(null);
     setMissing(false);
     (async () => {
-      const d = await tryGet(getLeagueRoster(leagueId));
+      const [d, sp] = await Promise.all([
+        tryGet(getLeagueRoster(leagueId)),
+        tryGet(getScheduleAdjustedProjections(2026, undefined, 400)),
+      ]);
       if (cancelled) return;
       if (!d) setMissing(true);
       setData(d);
+      setSched(sp?.players ?? []);
     })();
     return () => {
       cancelled = true;
@@ -211,6 +230,7 @@ function RosterTab({ leagueId, status }: { leagueId: string; status: string }) {
 
   const starters = data.players.filter((p) => p.is_starter);
   const bench = data.players.filter((p) => !p.is_starter);
+  const schedByPlayer = new Map(sched.map((s) => [s.player_id, s]));
   const insights = rosterInsights(data.players);
 
   return (
@@ -228,8 +248,16 @@ function RosterTab({ leagueId, status }: { leagueId: string; status: string }) {
           </div>
         </div>
       )}
-      <RosterGroup title={`Starters (${starters.length})`} players={starters} />
-      <RosterGroup title={`Bench (${bench.length})`} players={bench} />
+      <RosterGroup
+        title={`Starters (${starters.length})`}
+        players={starters}
+        schedByPlayer={schedByPlayer}
+      />
+      <RosterGroup
+        title={`Bench (${bench.length})`}
+        players={bench}
+        schedByPlayer={schedByPlayer}
+      />
     </>
   );
 }

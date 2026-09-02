@@ -846,3 +846,66 @@ export const getLeagueMatchups = (leagueId: string, week: number) =>
   request<LeagueMatchups>(
     `/leagues/${encodeURIComponent(leagueId)}/matchups${qs({ week })}`,
   );
+
+/* ------------------------------------------------------------------ */
+/* Scheme-adjusted schedule projections                                */
+/* ------------------------------------------------------------------ */
+
+export interface ScheduleAdjustedPlayer {
+  player_id: string;
+  player_name: string;
+  position: string;
+  team: string | null;
+  projected_games: number;
+  ppg_2025: number | null;
+  targets_pg: number | null;
+  carries_pg: number | null;
+  avg_projected_yards: number | null;
+  total_projected_yards: number | null;
+  total_projected_tds: number | null;
+  avg_epa: number | null;
+  avg_matchup_score: number | null;
+  schedule_rating: string; // Smash | Favorable | Neutral | Tough | Avoid
+}
+
+export interface ScheduleAdjustedProjections {
+  season: number;
+  position: string | null;
+  players: ScheduleAdjustedPlayer[];
+}
+
+export interface WeeklyMatchupWeek {
+  week: number;
+  opponent: string;
+  projected_yards: number | null;
+  projected_tds: number | null;
+  weighted_epa: number | null;
+  matchup_score: number | null;
+  matchup_rating: string;
+  opponent_shell_tendencies: Record<string, number>;
+}
+
+export interface WeeklyMatchupProjection {
+  player_id: string;
+  player_name: string;
+  position: string;
+  team: string | null;
+  season: number;
+  weeks: WeeklyMatchupWeek[];
+  best_weeks: { week: number; opponent: string; score: number }[];
+  worst_weeks: { week: number; opponent: string; score: number }[];
+}
+
+export const getScheduleAdjustedProjections = (
+  season: number,
+  position?: string,
+  limit = 20,
+) =>
+  request<ScheduleAdjustedProjections>(
+    `/projections/schedule-adjusted${qs({ season, position, limit })}`,
+  );
+
+export const getWeeklyMatchupProjection = (playerId: string, season: number) =>
+  request<WeeklyMatchupProjection>(
+    `/projections/weekly-matchup${qs({ player_id: playerId, season })}`,
+  );

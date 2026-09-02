@@ -41,6 +41,13 @@ const METRIC_TIPS: Record<string, string> = {
   dime: "Snap share in Dime personnel (6 defensive backs).",
   base: "Snap share in base personnel (4-3 or 3-4 — four defensive backs).",
   front: "Average DL-LB-DB counts this package is run from.",
+  "matchup score": "Scheme fit vs this opponent: the player's production weighted by the defense's coverage-shell mix, relative to their own average. Above 1.0 = the schedule suits them.",
+  score: "Scheme fit vs this opponent: the player's production weighted by the defense's coverage-shell mix, relative to their own average. Above 1.0 = the schedule suits them.",
+  "2026 sched": "Schedule rating: how well this player's matchup splits line up with the defensive tendencies of their 2026 opponents.",
+  rating: "Schedule rating derived from the matchup score: Smash > 1.1, Favorable > 1.0, Neutral > 0.9, Tough > 0.8, otherwise Avoid.",
+  "proj yds/g": "Scheme-adjusted projected yards per game: 2025 per-shell production weighted by each opponent's coverage-shell mix.",
+  "proj yds": "Scheme-adjusted projected total yards across the 2026 schedule.",
+  "proj tds": "Scheme-adjusted projected touchdowns across the 2026 schedule.",
 };
 
 export function metricTip(label: unknown): string | null {
