@@ -23,13 +23,9 @@ import {
   getTopPerformers,
   tryGet,
 } from "@/lib/api";
-import {
-  GradedDefense,
-  GradedDefenseField,
-  GradedOffense,
-  GradedOffenseField,
-  tierColor,
-} from "@/components/GradedFields";
+import { tierColor } from "@/components/GradedFields";
+import type { GradedDefense, GradedOffense } from "@/components/GradedFields";
+import MatchupField from "@/components/MatchupField";
 import PlayerCard from "@/components/PlayerCard";
 import PositionTabs from "@/components/PositionTabs";
 import SeasonSelect from "@/components/SeasonSelect";
@@ -540,38 +536,39 @@ function MatchupDetail({
         </p>
       )}
 
-      {/* dual fields */}
-      <div className="mt-4 grid items-start gap-3 lg:grid-cols-[1fr_auto_1fr]">
-        <div className="min-w-0">
-          <h3 className="mb-1.5 text-center text-xs font-semibold uppercase tracking-wider text-muted">
-            {offTeam} offense · {offCtx.top_formation ?? "SHOTGUN"} / {offCtx.top_personnel ?? "11"}
-          </h3>
-          <GradedOffenseField
-            formation={offCtx.top_formation ?? "SHOTGUN"}
-            personnelGrouping={offCtx.top_personnel ?? "11"}
-            players={offense}
-            displayGrade={(p) => shellAdjustedGrade(p, shell)}
-            onSelect={(p, pos) => setPanel({ kind: "off", p, pos })}
-          />
-        </div>
-        <div className="hidden items-center self-center lg:flex">
-          <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-bold uppercase text-faint">
-            vs
-          </span>
-        </div>
-        <div className="min-w-0">
+      {/* unified field */}
+      {season >= 2026 && (
+        <p className="mt-3 text-center text-[11px] text-faint">
+          Rosters based on current team assignments. Stats from 2025 season.
+        </p>
+      )}
+      {offense.QB.length + offense.WR.length + offense.RB.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-border bg-surface px-4 py-8 text-center text-sm text-muted">
+          No roster data available for {offTeam} yet — check back once lineups
+          are in.
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-col items-center">
           <h3 className="mb-1.5 text-center text-xs font-semibold uppercase tracking-wider text-muted">
             {defTeam} defense · {activePkg}
             {shell ? ` / ${shell}` : ""}
           </h3>
-          <GradedDefenseField
+          <MatchupField
+            formation={offCtx.top_formation ?? "SHOTGUN"}
+            personnelGrouping={offCtx.top_personnel ?? "11"}
+            offense={offense}
+            defense={defense}
             front={front}
             shell={shell}
-            players={defense}
-            onSelect={(p) => setPanel({ kind: "def", p })}
+            displayGrade={(p) => shellAdjustedGrade(p, shell)}
+            onSelectOff={(p, pos) => setPanel({ kind: "off", p, pos })}
+            onSelectDef={(p) => setPanel({ kind: "def", p })}
           />
+          <h3 className="mt-1.5 text-center text-xs font-semibold uppercase tracking-wider text-muted">
+            {offTeam} offense · {offCtx.top_formation ?? "SHOTGUN"} / {offCtx.top_personnel ?? "11"}
+          </h3>
         </div>
-      </div>
+      )}
       <p className="mt-1 text-center text-[11px] text-faint">
         Circle numbers are 0-100 matchup grades · hover for the stat card ·
         click a player for the full breakdown

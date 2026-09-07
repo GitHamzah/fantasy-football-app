@@ -24,6 +24,10 @@ export function tierColor(grade: number | null | undefined): string {
 
 function lastName(name: string): string {
   const parts = (name ?? "").trim().split(/\s+/);
+  // Suffixes are not surnames: "Milton Williams II" labels as Williams.
+  while (parts.length > 1 && /^(II|III|IV|Jr\.?|Sr\.?)$/i.test(parts[parts.length - 1])) {
+    parts.pop();
+  }
   const last = parts[parts.length - 1] ?? name;
   return last.length > 11 ? `${last.slice(0, 10)}…` : last;
 }
@@ -66,7 +70,7 @@ export function defTooltip(p: MatchupDefPlayer): string {
   return lines.join("\n");
 }
 
-function GradeDot({
+export function GradeDot({
   x,
   y,
   grade,

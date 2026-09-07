@@ -103,7 +103,10 @@ body {
   background: #0b111c;
 }
 
-.tbl thead tr.cols th {
+/* The 27px offset belongs ONLY under a group header row. A sticky element
+   with top: 27px is displaced immediately (even at scrollTop 0), so applying
+   it to single-row headers floated them down over the first data row. */
+.tbl thead tr.grp + tr.cols th {
   top: 27px;
 }
 

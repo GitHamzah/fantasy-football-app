@@ -21,6 +21,7 @@ import {
   tryGet,
 } from "@/lib/api";
 import { StatusBadge, hasPlayed } from "@/components/LeagueBits";
+import Tooltip from "@/components/Tooltip";
 import RatingBadge from "@/components/RatingBadge";
 import PositionBadge from "@/components/PositionBadge";
 import SortableTable, { TableSkeleton } from "@/components/SortableTable";
@@ -49,6 +50,12 @@ function PlayerName({ p }: { p: LeagueRosterPlayer }) {
   );
 }
 
+const SHELL_MEANING: Record<string, string> = {
+  "2-High": "defenses with both safeties deep",
+  "1-High": "defenses with one safety deep",
+  "Loaded Box": "defenses with 8+ defenders near the line",
+};
+
 function ShellChip({
   split,
   good,
@@ -59,13 +66,21 @@ function ShellChip({
   if (!split) return <span className="text-faint">—</span>;
   const color = good ? "#2ecc71" : "#e74c3c";
   const bg = good ? "rgba(46,204,113,0.12)" : "rgba(231,76,60,0.12)";
+  const meaning = SHELL_MEANING[split.shell] ?? split.shell;
+  const tip =
+    `${good ? "Best" : "Toughest"} defensive look for this player. ` +
+    `'${split.shell}' = ${meaning}. ` +
+    `'${split.avg_yards?.toFixed(1) ?? "—"}' = average yards per opportunity ` +
+    `against this ${good ? "coverage" : "look"} in 2025.`;
   return (
-    <span
-      className="whitespace-nowrap rounded px-1.5 py-0.5 text-xs tabular-nums"
-      style={{ color, background: bg }}
-    >
-      {split.shell} · {split.avg_yards?.toFixed(1) ?? "—"}
-    </span>
+    <Tooltip text={tip} side="bottom">
+      <span
+        className="whitespace-nowrap rounded px-1.5 py-0.5 text-xs tabular-nums"
+        style={{ color, background: bg }}
+      >
+        {split.shell} · {split.avg_yards?.toFixed(1) ?? "—"}
+      </span>
+    </Tooltip>
   );
 }
 
