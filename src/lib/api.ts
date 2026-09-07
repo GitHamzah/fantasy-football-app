@@ -909,3 +909,172 @@ export const getWeeklyMatchupProjection = (playerId: string, season: number) =>
   request<WeeklyMatchupProjection>(
     `/projections/weekly-matchup${qs({ player_id: playerId, season })}`,
   );
+
+/* ------------------------------------------------------------------ */
+/* Game matchups (flagship)                                            */
+/* ------------------------------------------------------------------ */
+
+export interface GameWeekGame {
+  game_id: string;
+  home_team: string;
+  away_team: string;
+  gameday: string | null;
+  weekday: string | null;
+  gametime: string | null;
+}
+
+export interface GamesWeek {
+  season: number;
+  week: number;
+  games: GameWeekGame[];
+}
+
+export interface MatchupVsDefense {
+  attempts: number;
+  yards: number | null;
+  tds: number;
+  avg_yards: number | null;
+}
+
+export interface MatchupOffPlayer {
+  name: string;
+  gsis_id: string;
+  grade: number | null;
+  grade_label?: string;
+  confidence?: string;
+  position?: string | null; // present on OL entries only
+  ppg?: number | null;
+  vs_this_defense?: MatchupVsDefense | null;
+  vs_defense_shell?: Record<string, { attempts: number; avg_yards: number | null }>;
+}
+
+export interface MatchupPfr {
+  games: number;
+  targets_allowed: number;
+  comp_pct_allowed: number | null;
+  yards_per_tgt: number | null;
+  passer_rating: number | null;
+  ints: number;
+  sacks: number;
+  pressures_pg: number;
+  missed_tackle_pct: number | null;
+  tackles_pg: number;
+}
+
+export interface MatchupDefPlayer {
+  name: string;
+  gsis_id: string;
+  position: string;
+  grade: number | null;
+  grade_label: string;
+  confidence: string;
+  pfr: MatchupPfr | null;
+}
+
+export interface PositionMatchupGroup {
+  group: string;
+  offense_team: string;
+  defense_team: string;
+  offense_grade: number | null;
+  defense_grade: number | null;
+  matchup: number | null;
+  edge: number | null;
+  advantage: string;
+  insight: string;
+  offense_players: MatchupOffPlayer[];
+  defense_players: MatchupDefPlayer[];
+}
+
+export interface GameMatchupSummary {
+  home_offense_grade: number | null;
+  home_offense_label: string;
+  away_defense_grade: number | null;
+  away_defense_label: string;
+  home_edge: number | null;
+  away_offense_grade: number | null;
+  away_offense_label: string;
+  home_defense_grade: number | null;
+  home_defense_label: string;
+  away_edge: number | null;
+  headline: string;
+}
+
+export interface MatchupOffenseContext {
+  top_formation: string | null;
+  pct: number | null;
+  top_personnel: string | null;
+}
+
+export interface MatchupDefenseContext {
+  top_package: string | null;
+  pct: number | null;
+  shells: Record<string, number>;
+}
+
+export interface HeadToHeadSide {
+  plays: number;
+  avg_yards: number;
+  avg_epa: number;
+  by_shell: { shell: string; plays: number; avg_yards: number | null; avg_epa: number | null }[];
+}
+
+export interface GameMatchupResponse {
+  home_team: string;
+  away_team: string;
+  season: number;
+  stats_season: number;
+  matchup_summary: GameMatchupSummary;
+  position_matchups: PositionMatchupGroup[];
+  formation_context: {
+    home_offense: MatchupOffenseContext;
+    home_defense: MatchupDefenseContext;
+    away_offense: MatchupOffenseContext;
+    away_defense: MatchupDefenseContext;
+  };
+  head_to_head: {
+    games_played_2025: number;
+    note?: string;
+    home_off_vs_away_def?: HeadToHeadSide | null;
+    away_off_vs_home_def?: HeadToHeadSide | null;
+  };
+}
+
+export interface PlayerVsLookResponse {
+  player_id: string;
+  player_name: string;
+  season: number;
+  def_package: string | null;
+  coverage_shell: string | null;
+  totals: { attempts: number; yards: number; tds: number; avg_yards: number | null };
+  by_opponent: {
+    defteam: string;
+    attempts: number;
+    yards: number | null;
+    tds: number;
+    avg_yards: number | null;
+    avg_epa: number | null;
+  }[];
+  opposing_defenders?: {
+    defteam: string;
+    players: { name: string; position: string; grade: number | null; pfr: MatchupPfr | null }[];
+  };
+}
+
+export const getGamesWeek = (season: number, week: number) =>
+  request<GamesWeek>(`/games/week${qs({ season, week })}`);
+
+export const getGameMatchup = (home: string, away: string, season: number) =>
+  request<GameMatchupResponse>(`/games/matchup${qs({ home, away, season })}`);
+
+export const getPlayerVsLook = (
+  playerId: string,
+  params: {
+    def_package?: string;
+    coverage_shell?: string;
+    season?: number;
+    defteam?: string;
+  },
+) =>
+  request<PlayerVsLookResponse>(
+    `/games/player-vs-look${qs({ player_id: playerId, ...params })}`,
+  );
