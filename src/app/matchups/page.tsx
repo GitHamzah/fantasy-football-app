@@ -32,7 +32,7 @@ import SeasonSelect from "@/components/SeasonSelect";
 import SortableTable, { TableSkeleton } from "@/components/SortableTable";
 import TeamLogo from "@/components/TeamLogo";
 import { epaBg, epaColor } from "@/components/TeamSelect";
-import { useQueryState } from "@/components/useQueryState";
+import { useQueryBatch, useQueryState } from "@/components/useQueryState";
 import { positionColor } from "@/components/PositionBadge";
 
 const POSITIONS = ["QB", "RB", "WR", "TE"];
@@ -647,9 +647,10 @@ function MatchupDetail({
 /* ---- tab shell: week bar + game cards + detail ---- */
 
 function GameMatchupsTab() {
-  const [seasonStr, setSeason] = useQueryState("season", "2026");
-  const [weekStr, setWeek] = useQueryState("week", "1");
+  const [seasonStr] = useQueryState("season", "2026");
+  const [weekStr] = useQueryState("week", "1");
   const [game, setGame] = useQueryState("game", "");
+  const setParams = useQueryBatch();
   const season = Number(seasonStr) || 2026;
   const week = Number(weekStr) || 1;
 
@@ -686,20 +687,18 @@ function GameMatchupsTab() {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <SeasonSelect
           value={season}
-          onChange={(s) => {
-            setSeason(String(s));
-            setGame("");
-          }}
+          onChange={(s) =>
+            setParams({ season: s === 2026 ? null : String(s), game: null })
+          }
           seasons={[2026]}
         />
         <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-md border border-border bg-surface p-1">
           {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
             <button
               key={w}
-              onClick={() => {
-                setWeek(String(w));
-                setGame("");
-              }}
+              onClick={() =>
+                setParams({ week: w === 1 ? null : String(w), game: null })
+              }
               aria-pressed={w === week}
               className={
                 "shrink-0 rounded px-2.5 py-1 text-xs font-medium tabular-nums transition-colors " +
